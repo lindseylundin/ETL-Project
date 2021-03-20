@@ -30,11 +30,16 @@ INNER JOIN tag_stage ON tag_stage.quote = quote.quote
 
 
 --*******--.top 10.--********--
-SELECT tag, COUNT(*) AS ct 
+DROP TABLE IF EXISTS top_tags;
+	CREATE TABLE top_tags (
+		  tag    VARCHAR(100) NOT NULL
+		, count  INTEGER      NOT NULL
+	);
+INSERT INTO top_tags (tag, count)
+SELECT tag, COUNT(*) AS ct
 FROM tag
-GROUP BY tag 
-ORDER BY ct DESC LIMIT 10
-
+GROUP BY tag
+ORDER BY ct DESC LIMIT 10;
 
 --.-----Truncate staging tables --.----
 TRUNCATE author_stage;

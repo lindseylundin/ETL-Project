@@ -33,6 +33,7 @@ Base.prepare(engine, reflect=True)
 author = Base.classes.author
 quote = Base.classes.quote
 tag = Base.classes.tag
+#top_tags = Base.classes.top_tags
 
 #################################################
 # Flask Setup
@@ -221,25 +222,45 @@ def tags():
 
 
 
-@app.route("/tags/<tag>")
-def PassInTag(tag):
-    #session = Session(engine)
+@app.route("/tags/<tagvalue>")
+def PassInTag(tagvalue):
+    session = Session(engine)
+    PassedInTagQuotes = session.query(quote.quote, quote.quote_id).join(tag, tag.quote_id == quote.quote_id).filter(tag.tag == tagvalue).all()
+    tagvalue_qt_list = [] 
+    for qt, i in PassedInTagQuotes:
+        #query all tags for this quote
+        #query returns a list of lists, each tag is a list of 1 item
+        #loop through each list of 1 item and append each 1 item to 1 final list (loop_tag_list)
+        qt_tlst = []
+        qt_taglist = session.query(tag.tag).filter(tag.quote_id == i).all()
+        for t in qt_taglist:
+            qt_tlst.append(t[0])
+        tagvalue_qt_dict = {}
+        tagvalue_qt_dict["text"] = qt.replace("\u201c","").replace("\u201d","")
+        tagvalue_qt_dict["tags"] = qt_tlst    
+        tagvalue_qt_list.append(tagvalue_qt_dict)  
+    #Create the outermost dictionary
+    final_PassedTag_dict = {}
+    final_PassedTag_dict["tag"] = tagvalue
+    final_PassedTag_dict["count"] = session.query(func.count(tag.quote_id)).filter(tag.tag == tagvalue).all()[0][0]
+    final_PassedTag_dict["quotes"] = tagvalue_qt_list
+    session.close()
+    return jsonify(final_PassedTag_dict)
 
-    t_result = 'This is a test passed in tag '+tag
-
-    #session.close()  
-
-    return jsonify(t_result)
 
 @app.route("/top10tags")
 def top10tags():
-    #session = Session(engine)
-
-    t_result = 'This is a test in top10tags'
-
-    #session.close()  
-
-    return jsonify(t_result)
+    session = Session(engine)
+    toptag = session.query(tag.tag,func.count(tag.quote_id)).group_by(tag.tag).order_by(desc(func.count(tag.quote_id))).limit(10).all()
+    Toptag_Dict_list = []
+    for tt,ct in toptag:
+        TopTagDict = {}
+        TopTagDict["tag"] = tt
+        TopTagDict["quote count"] = ct
+        Toptag_Dict_list.append(TopTagDict)
+    session.close()  
+    return jsonify(Toptag_Dict_list)
+    
 
 if __name__ == "__main__":
     app.run(debug=True)    
