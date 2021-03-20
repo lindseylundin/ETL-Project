@@ -13,7 +13,7 @@ import datetime as dt
 import sqlalchemy
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
-from sqlalchemy import create_engine, func
+from sqlalchemy import create_engine, func, desc, distinct
 from flask import Flask, jsonify, render_template
 from config import password
 
@@ -184,15 +184,40 @@ def PassInAuthor(AuthorName):
 
     return jsonify(AuthorDict)
 
+
 @app.route("/tags")
 def tags():
-    #session = Session(engine)
-​
-    t_result = 'This is a test tag'
-​
-    #session.close()  
-​
-    return jsonify(t_result)
+    session = Session(engine)
+    DistinctTag = session.query(tag.tag).group_by(tag.tag).order_by(desc(func.count(tag.quote_id))).all()
+    #Create list of dictionaries with the quote detail (Tagname,# of quotes,quotes dictionary)
+    InnerTagDictList = []
+    for dt in DistinctTag:
+        TagQuotes = session.query(quote.quote, quote.quote_id).join(tag, tag.quote_id == quote.quote_id).filter(tag.tag == dt).all()
+        qt_dict_list = [] 
+        for qt, i in TagQuotes:
+            #query all tags for this quote
+            #query returns a list of lists, each tag is a list of 1 item
+            #loop through each list of 1 item and append each 1 item to 1 final list (loop_tag_list)
+            tlst = []
+            taglist = session.query(tag.tag).filter(tag.quote_id == i).all()
+            for t in taglist:
+                tlst.append(t[0])
+            qt_dict = {}
+            qt_dict["text"] = qt.replace("\u201c","").replace("\u201d","")
+            qt_dict["tags"] = tlst    
+            qt_dict_list.append(qt_dict)   
+        TagDict = {}
+        TagDict["name"] = dt[0]
+        TagDict["number_of_quotes"] =session.query(func.count(tag.quote_id)).filter(tag.tag == dt).all()[0][0]
+        TagDict["quotes"] =qt_dict_list
+        InnerTagDictList.append(TagDict)
+    #Create the outermost dictionary
+    #Set details to the list of dictionaries you created above InnerTagDictList
+    final_dict = {}
+    final_dict["total"] = session.query(func.count(distinct(tag.tag))).all()[0][0]
+    final_dict["details"] = InnerTagDictList
+    session.close()
+    return jsonify(final_dict)
 
 
 
